@@ -68,10 +68,10 @@ void print_simhash(size_t simhash) {
 }
 
 void run_over_blocks() {
-	static const int shl = (int) sizeof(size_t); /* simhash lenghth */
+	static const int shl = (int) sizeof(size_t); /* simhash length */
 	static const int bs = 5; /* block size */
-	static const int binc = 1; /* block position increment */
-	static const int similarity_treshold = 7; /* how many bits can differ in simhash */
+	static const int binc = 2; /* block position increment */
+	static const int similarity_treshold = 11; /* how many bits can differ in simhash */
 
 	std::tr1::hash<float> hasher;
 	std::vector<Block> simhashes;
@@ -82,36 +82,42 @@ void run_over_blocks() {
 			for (int lon = 0; lon < NLON - bs; lon += binc) {
 				std::vector<int> simhash_vec(64);
 				int nonzero = 0;
-				for (int i = 0; i < bs; i++) {
-					std::size_t seed = 0;
-					float f = data[tim + i][lat + i][lon + i];
 
-					if (f == 0) {
-						continue;
-					}
-					nonzero++;
+				for (int iti = 0; iti < bs; iti++) {
+					for (int ilat = 0; ilat < bs; ilat++) {
+						for (int ilon = 0; ilon < bs; ilon++) {
 
-					// https://stackoverflow.com/questions/19966041/getting-too-many-collisions-with-hash-combine
-					hash_combine(seed, hasher(tim) * 2654435761);
-					hash_combine(seed, hasher(lat) * 2654435761);
-					hash_combine(seed, hasher(lon) * 2654435761);
-					hash_combine(seed, hasher(f) * 2654435761);
+							std::size_t seed = 0;
+							float f = data[tim + iti][lat + ilat][lon + ilon];
 
-					std::bitset<64> seed_bitset(seed);
+							if (f == 0) {
+								continue;
+							}
+							nonzero++;
+
+							// https://stackoverflow.com/questions/19966041/getting-too-many-collisions-with-hash-combine
+							hash_combine(seed, hasher(tim) * 2654435761);
+							hash_combine(seed, hasher(lat) * 2654435761);
+							hash_combine(seed, hasher(lon) * 2654435761);
+							hash_combine(seed, hasher(f) * 2654435761);
+
+							std::bitset<64> seed_bitset(seed);
 //					std::cout << "seed_bitset: " << seed_bitset << std::endl;
-					for (int j = 0; j < 64; j++) {
-						if (seed_bitset[j]) {
-							simhash_vec[j]++;
-						} else {
-							simhash_vec[j]--;
-						}
-					}
+							for (int j = 0; j < 64; j++) {
+								if (seed_bitset[j]) {
+									simhash_vec[j]++;
+								} else {
+									simhash_vec[j]--;
+								}
+							}
 
 //					std::cout << "simhash_vec: ";
 //					for (auto i = simhash_vec.begin(); i != simhash_vec.end(); ++i)
 //					    std::cout << *i << ", ";
 //					std::cout << std::endl;
 
+						}
+					}
 				} /* for i 0..bs */
 
 				/* if there was no nonzero value, don't save its simhash */
