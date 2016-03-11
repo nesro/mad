@@ -12,6 +12,7 @@
 #include <string>
 #include <bitset>
 #include <tuple>
+#include <cmath>
 
 using namespace netCDF;
 using namespace netCDF::exceptions;
@@ -89,7 +90,7 @@ void block_diff(Block &b1, Block &b2) {
 					continue;
 				}
 
-				diff += abs(fb1 - fb2);
+				diff += fabs(fb1 - fb2);
 			}
 		}
 	}
@@ -133,9 +134,11 @@ void run_over_blocks() {
 							nonzero++;
 
 							// https://stackoverflow.com/questions/19966041/getting-too-many-collisions-with-hash-combine
-							hash_combine(seed, hasher(tim) * 2654435761);
-							hash_combine(seed, hasher(lat) * 2654435761);
-							hash_combine(seed, hasher(lon) * 2654435761);
+							hash_combine(seed, hasher(iti) * 2654435761);
+							hash_combine(seed,
+									hasher(ilat * 1000) * 2654435761);
+							hash_combine(seed,
+									hasher(ilon * 1000000) * 2654435761);
 //							hash_combine(seed,
 //									hasher(hasher(tim + lat * 1000 + lon * 100000))
 //											* 2654435761);
@@ -219,6 +222,7 @@ void run_over_blocks() {
 
 				std::cout << "  ";
 				block_diff(simhashes[i + 0], simhashes[i + 1]);
+				std::cout << std::endl;
 
 				simhashes[i + 0].similar.push_back(simhashes[i + 1]);
 				simhashes[i + 1].similar.push_back(simhashes[i + 0]);
@@ -290,6 +294,8 @@ bool load_nc() {
 							&& data[time][lat][lon] > -1000) {
 //						printf("%f // tos(%d,%d,%d)\n", data[time][lat][lon],
 //								time, lat, lon);
+						data[time][lat][lon] = round(
+								data[time][lat][lon] * 1000) / 1000;
 					} else {
 //						printf("_ // tos(%d,%d,%d)\n", time, lat, lon);
 						data[time][lat][lon] = 0;
