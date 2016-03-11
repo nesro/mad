@@ -22,6 +22,14 @@ static const int NTIM = 24;
 
 float data[NTIM][NLAT][NLON];
 
+/* load data from tos_O1_2001-2002.nc to data */
+bool load_nc();
+
+static const int shl = (int) sizeof(size_t); /* simhash length */
+static const int bs = 5; /* block size */
+static const int binc = 1; /* block position increment */
+static const int similarity_treshold = 10; /* how many bits can differ in simhash */
+
 /* stolen from boost */
 void hash_combine(std::size_t& seed, const float& v) {
 	std::tr1::hash<float> hasher;
@@ -33,9 +41,6 @@ void cyclic_shift(size_t &s) {
 	s >>= 1;
 	s |= first_bit;
 }
-
-/* load data from tos_O1_2001-2002.nc to data */
-bool load_nc();
 
 /******************************************************************************/
 
@@ -56,11 +61,47 @@ public:
 	}
 
 	bool operator==(const Block &other) const {
-		/* this is probaly not right */
+		/* this is probably not right. just compare pointers to instances */
 		return (this->tim == other.tim && this->lat == other.lat
 				&& this->lon == other.lon);
 	}
 };
+
+/* TODO: something like BlockSimilarity class */
+
+void block_diff(Block &b1, Block &b2) {
+	int same = 0;
+	int zero_same = 0;
+	float diff = 0;
+
+	for (int iti = 0; iti < bs; iti++) {
+		for (int ilat = 0; ilat < bs; ilat++) {
+			for (int ilon = 0; ilon < bs; ilon++) {
+				float fb1 = data[b1.tim + iti][b1.lat + ilat][b1.lon + ilon];
+				float fb2 = data[b2.tim + iti][b2.lat + ilat][b2.lon + ilon];
+
+				if (fb1 == fb2) {
+					if (fb1 == 0) {
+						zero_same++;
+						continue;
+					}
+					same++;
+					continue;
+				}
+
+				diff += abs(fb1 - fb2);
+			}
+		}
+	}
+
+	if (same > 0) {
+		std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!! ";
+	}
+
+	std::bitset<64> simxor(b1.simhash ^ b2.simhash);
+	std::cout << "zero_same=" << zero_same << ", same=" << same << ", diff="
+			<< diff << ", xor=" << simxor.count() << std::endl;
+}
 
 void print_simhash(size_t simhash) {
 	std::bitset<64> bs(simhash);
@@ -68,10 +109,6 @@ void print_simhash(size_t simhash) {
 }
 
 void run_over_blocks() {
-	static const int shl = (int) sizeof(size_t); /* simhash length */
-	static const int bs = 5; /* block size */
-	static const int binc = 2; /* block position increment */
-	static const int similarity_treshold = 11; /* how many bits can differ in simhash */
 
 	std::tr1::hash<float> hasher;
 	std::vector<Block> simhashes;
@@ -99,6 +136,9 @@ void run_over_blocks() {
 							hash_combine(seed, hasher(tim) * 2654435761);
 							hash_combine(seed, hasher(lat) * 2654435761);
 							hash_combine(seed, hasher(lon) * 2654435761);
+//							hash_combine(seed,
+//									hasher(hasher(tim + lat * 1000 + lon * 100000))
+//											* 2654435761);
 							hash_combine(seed, hasher(f) * 2654435761);
 
 							std::bitset<64> seed_bitset(seed);
@@ -176,6 +216,9 @@ void run_over_blocks() {
 				std::cout << std::endl;
 				std::cout << "  ";
 				print_simhash(simhashes[i + 1].simhash);
+
+				std::cout << "  ";
+				block_diff(simhashes[i + 0], simhashes[i + 1]);
 
 				simhashes[i + 0].similar.push_back(simhashes[i + 1]);
 				simhashes[i + 1].similar.push_back(simhashes[i + 0]);
