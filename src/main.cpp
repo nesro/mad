@@ -303,7 +303,7 @@ bool load_nc() {
 //						printf("%f // tos(%d,%d,%d)\n", data[time][lat][lon],
 //								time, lat, lon);
 						data[time][lat][lon] = round(
-								data[time][lat][lon] * 1000) / 1000;
+								data[time][lat][lon] * 100) / 100.0f;
 					} else {
 //						printf("_ // tos(%d,%d,%d)\n", time, lat, lon);
 						data[time][lat][lon] = 0;
