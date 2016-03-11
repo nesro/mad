@@ -195,6 +195,14 @@ void run_over_blocks() {
 
 			if (simxor.count() < similarity_treshold) {
 
+				/* skip blocks too close together */
+				if ((abs(simhashes[i + 0].tim - simhashes[i + 1].tim) < 5)
+						|| (abs(simhashes[i + 0].lat - simhashes[i + 1].lat) < 5)
+						|| (abs(simhashes[i + 0].lon - simhashes[i + 1].lon) < 5)
+						) {
+					continue;
+				}
+
 				/* are they already similar? */
 				if (std::find(simhashes[i + 0].similar.begin(),
 						simhashes[i + 0].similar.end(), simhashes[i + 1])
