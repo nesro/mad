@@ -30,6 +30,7 @@ static const int shl = (int) sizeof(size_t); /* simhash length */
 static const int bs = 5; /* block size */
 static const int binc = 1; /* block position increment */
 static const int similarity_treshold = 10; /* how many bits can differ in simhash */
+static const int search_window = 100;
 
 /* stolen from boost */
 void hash_combine(std::size_t& seed, const float& v) {
@@ -188,55 +189,58 @@ void run_over_blocks() {
 	for (int s = 0; s < 64; s++) {
 		std::sort(simhashes.begin(), simhashes.end());
 
-		for (int i = 0; i < (int) simhashes.size() - 1; i++) {
+		for (int i = 0; i < (int) simhashes.size() - search_window; i++) {
+			for (int sw = 0; sw < search_window; sw++) {
+				std::bitset<64> simxor(
+						simhashes[i].simhash ^ simhashes[i + sw].simhash);
 
-			std::bitset<64> simxor(
-					simhashes[i].simhash ^ simhashes[i + 1].simhash);
+				if (simxor.count() < similarity_treshold) {
 
-			if (simxor.count() < similarity_treshold) {
+					/* skip blocks too close together */
+					/* TODO: make 5 a constant */
+					if ((abs(simhashes[i].tim - simhashes[i + sw].tim) < 5)
+							|| (abs(simhashes[i].lat - simhashes[i + sw].lat)
+									< 5)
+							|| (abs(simhashes[i].lon - simhashes[i + sw].lon)
+									< 5)) {
+						continue;
+					}
 
-				/* skip blocks too close together */
-				if ((abs(simhashes[i + 0].tim - simhashes[i + 1].tim) < 5)
-						|| (abs(simhashes[i + 0].lat - simhashes[i + 1].lat) < 5)
-						|| (abs(simhashes[i + 0].lon - simhashes[i + 1].lon) < 5)
-						) {
-					continue;
+					/* are they already similar? */
+					if (std::find(simhashes[i].similar.begin(),
+							simhashes[i].similar.end(), simhashes[i + sw])
+							!= simhashes[i].similar.end()) {
+						continue;
+					}
+
+					std::cout << "found almost same simhash" << std::endl;
+
+					std::cout << "  first: ";
+					std::cout << "tim=" << simhashes[i].tim << ", ";
+					std::cout << "lon=" << simhashes[i].lon << ", ";
+					std::cout << "lat=" << simhashes[i].lat;
+					std::cout << std::endl;
+					std::cout << "  ";
+					print_simhash(simhashes[i].simhash);
+
+					std::cout << "  second: ";
+					std::cout << "tim=" << simhashes[i + sw].tim << ", ";
+					std::cout << "lon=" << simhashes[i + sw].lon << ", ";
+					std::cout << "lat=" << simhashes[i + sw].lat;
+					std::cout << std::endl;
+					std::cout << "  ";
+					print_simhash(simhashes[i + sw].simhash);
+
+					std::cout << "  ";
+					block_diff(simhashes[i], simhashes[i + sw]);
+					std::cout << std::endl;
+
+					simhashes[i].similar.push_back(simhashes[i + sw]);
+					simhashes[i + sw].similar.push_back(simhashes[i]);
+
+					similar.push_back(
+							std::make_pair(simhashes[i], simhashes[i + sw]));
 				}
-
-				/* are they already similar? */
-				if (std::find(simhashes[i + 0].similar.begin(),
-						simhashes[i + 0].similar.end(), simhashes[i + 1])
-						!= simhashes[i + 0].similar.end()) {
-					continue;
-				}
-
-				std::cout << "found almost same simhash" << std::endl;
-
-				std::cout << "  first: ";
-				std::cout << "tim=" << simhashes[i + 0].tim << ", ";
-				std::cout << "lon=" << simhashes[i + 0].lon << ", ";
-				std::cout << "lat=" << simhashes[i + 0].lat;
-				std::cout << std::endl;
-				std::cout << "  ";
-				print_simhash(simhashes[i + 0].simhash);
-
-				std::cout << "  second: ";
-				std::cout << "tim=" << simhashes[i + 1].tim << ", ";
-				std::cout << "lon=" << simhashes[i + 1].lon << ", ";
-				std::cout << "lat=" << simhashes[i + 1].lat;
-				std::cout << std::endl;
-				std::cout << "  ";
-				print_simhash(simhashes[i + 1].simhash);
-
-				std::cout << "  ";
-				block_diff(simhashes[i + 0], simhashes[i + 1]);
-				std::cout << std::endl;
-
-				simhashes[i + 0].similar.push_back(simhashes[i + 1]);
-				simhashes[i + 1].similar.push_back(simhashes[i + 0]);
-
-				similar.push_back(
-						std::make_pair(simhashes[i + 0], simhashes[i + 1]));
 			}
 		}
 
@@ -245,6 +249,7 @@ void run_over_blocks() {
 		}
 	}
 
+	std::cout << "found similar: " << similar.size() << std::endl;
 }
 
 /******************************************************************************/
@@ -254,32 +259,7 @@ int main() {
 		return (EXIT_FAILURE);
 	}
 
-//	size_t xx = -234;
-//	print_simhash(xx);
-//	cyclic_shift(xx);
-//	print_simhash(xx);
-//	return 0;
-
 	run_over_blocks();
-
-//	std::cout << "sizeof size_t " << sizeof(size_t) << std::endl;
-//	std::cout << "sizeof ulong " << sizeof(unsigned long) << std::endl;
-//
-//	std::tr1::hash<float> hasher;
-//	std::bitset<64> x(hasher(0.0004));
-//	std::cout << x <1< std::endl;
-//
-//	std::vector<int> va(64);
-//
-////	for (int i = 0; i < 64; i++) {
-////		std::cout << x[i] << std::endl;
-////	}
-////
-//
-//	std::size_t seed = 0;
-//	hash_combine(seed, hasher(0.0004));
-//	hash_combine(seed, hasher(0.0054));
-//	std::cout << seed << std::endl;
 
 	return (EXIT_SUCCESS);
 }
@@ -303,7 +283,7 @@ bool load_nc() {
 //						printf("%f // tos(%d,%d,%d)\n", data[time][lat][lon],
 //								time, lat, lon);
 						data[time][lat][lon] = round(
-								data[time][lat][lon] * 100) / 100.0f;
+								data[time][lat][lon] * 100000) / 100000.0f;
 					} else {
 //						printf("_ // tos(%d,%d,%d)\n", time, lat, lon);
 						data[time][lat][lon] = 0;
